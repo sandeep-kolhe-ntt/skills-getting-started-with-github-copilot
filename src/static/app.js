@@ -21,22 +21,46 @@ document.addEventListener("DOMContentLoaded", () => {
         const spotsLeft = details.max_participants - details.participants.length;
 
         // Participants section
-        let participantsHTML = "";
+        let participantsSection;
         if (details.participants.length > 0) {
-          participantsHTML = `
-            <div class="participants-section">
-              <strong>Participants:</strong>
-              <ul class="participants-list">
-                ${details.participants.map(email => `<li>${email}</li>`).join("")}
-              </ul>
-            </div>
-          `;
+          participantsSection = document.createElement("div");
+          participantsSection.className = "participants-section";
+          const strong = document.createElement("strong");
+          strong.textContent = "Participants:";
+          participantsSection.appendChild(strong);
+          const ul = document.createElement("ul");
+          ul.className = "participants-list";
+          ul.style.listStyleType = "none";
+          ul.style.paddingLeft = "0";
+          details.participants.forEach(email => {
+            const li = document.createElement("li");
+            li.style.display = "flex";
+            li.style.alignItems = "center";
+            const span = document.createElement("span");
+            span.textContent = email;
+            span.style.flex = "1";
+            const delBtn = document.createElement("button");
+            delBtn.innerHTML = "🗑️";
+            delBtn.title = "Unregister";
+            delBtn.className = "delete-participant-btn";
+            delBtn.style.marginLeft = "8px";
+            delBtn.style.background = "none";
+            delBtn.style.border = "none";
+            delBtn.style.cursor = "pointer";
+            delBtn.onclick = async () => {
+              await unregisterParticipant(name, email);
+            };
+            li.appendChild(span);
+            li.appendChild(delBtn);
+            ul.appendChild(li);
+          });
+          participantsSection.appendChild(ul);
         } else {
-          participantsHTML = `
-            <div class="participants-section no-participants">
-              <em>No participants yet.</em>
-            </div>
-          `;
+          participantsSection = document.createElement("div");
+          participantsSection.className = "participants-section no-participants";
+          const em = document.createElement("em");
+          em.textContent = "No participants yet.";
+          participantsSection.appendChild(em);
         }
 
         activityCard.innerHTML = `
@@ -44,8 +68,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
-          ${participantsHTML}
         `;
+        activityCard.appendChild(participantsSection);
 
         activitiesList.appendChild(activityCard);
 
@@ -55,6 +79,31 @@ document.addEventListener("DOMContentLoaded", () => {
         option.textContent = name;
         activitySelect.appendChild(option);
       });
+      // Unregister participant function
+      async function unregisterParticipant(activity, email) {
+        if (!confirm(`Remove ${email} from ${activity}?`)) return;
+        try {
+          const response = await fetch(`/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`, {
+            method: "POST"
+          });
+          const result = await response.json();
+          if (response.ok) {
+            messageDiv.textContent = result.message || "Participant removed.";
+            messageDiv.className = "success";
+            fetchActivities();
+          } else {
+            messageDiv.textContent = result.detail || "Failed to remove participant.";
+            messageDiv.className = "error";
+          }
+          messageDiv.classList.remove("hidden");
+          setTimeout(() => messageDiv.classList.add("hidden"), 5000);
+        } catch (error) {
+          messageDiv.textContent = "Error removing participant.";
+          messageDiv.className = "error";
+          messageDiv.classList.remove("hidden");
+          setTimeout(() => messageDiv.classList.add("hidden"), 5000);
+        }
+      }
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
